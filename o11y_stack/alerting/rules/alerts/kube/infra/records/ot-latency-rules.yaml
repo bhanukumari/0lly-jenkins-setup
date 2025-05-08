@@ -1,0 +1,46 @@
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMRule
+metadata:
+  name: apiserver-availability.rules
+  namespace: monitoring
+spec:
+  groups:
+  - name: ot_latency_rules
+    interval: 1m
+    rules:
+      - record: quantile:latency:p99:apis:1m
+        expr: |
+          histogram_quantile(0.99, sum(rate(traces_span_metrics_duration_milliseconds_bucket{span_kind="SPAN_KIND_SERVER"}[1m])) by (le, service_name, http_route))
+      - record: quantile:latency:p99:service:1m
+        expr: |
+          histogram_quantile(0.99, sum(rate(traces_span_metrics_duration_milliseconds_bucket{span_kind="SPAN_KIND_SERVER"}[1m])) by (le, service_name))
+      - record: quantile:latency:p95:apis:1m
+        expr: |
+          histogram_quantile(0.95, sum(rate(traces_span_metrics_duration_milliseconds_bucket{span_kind="SPAN_KIND_SERVER"}[1m])) by (le, service_name, http_route))
+      - record: quantile:latency:p95:service:1m
+        expr: |
+          histogram_quantile(0.95, sum(rate(traces_span_metrics_duration_milliseconds_bucket{span_kind="SPAN_KIND_SERVER"}[1m])) by (le, service_name))
+      - record: quantile:latency:p90:apis:1m
+        expr: |
+          histogram_quantile(0.90, sum(rate(traces_span_metrics_duration_milliseconds_bucket{span_kind="SPAN_KIND_SERVER"}[1m])) by (le, service_name, http_route))
+      - record: quantile:latency:p90:service:1m
+        expr: |
+          histogram_quantile(0.90, sum(rate(traces_span_metrics_duration_milliseconds_bucket{span_kind="SPAN_KIND_SERVER"}[1m])) by (le, service_name))
+      - record: quantile:latency:p99:apis:5m
+        expr: |
+          histogram_quantile(0.99, sum(rate(traces_span_metrics_duration_milliseconds_bucket{span_kind="SPAN_KIND_SERVER"}[5m])) by (le, service_name, http_route))
+      - record: quantile:latency:p99:service:5m
+        expr: |
+          histogram_quantile(0.99, sum(rate(traces_span_metrics_duration_milliseconds_bucket{span_kind="SPAN_KIND_SERVER"}[5m])) by (le, service_name))
+      - record: quantile:latency:p95:apis:5m
+        expr: |
+          histogram_quantile(0.95, sum(rate(traces_span_metrics_duration_milliseconds_bucket{span_kind="SPAN_KIND_SERVER"}[5m])) by (le, service_name, http_route))
+      - record: quantile:latency:p95:service:5m
+        expr: |
+          histogram_quantile(0.95, sum(rate(traces_span_metrics_duration_milliseconds_bucket{span_kind="SPAN_KIND_SERVER"}[5m])) by (le, service_name))
+      - record: quantile:latency:p90:apis:5m
+        expr: |
+          histogram_quantile(0.90, sum(rate(traces_span_metrics_duration_milliseconds_bucket{span_kind="SPAN_KIND_SERVER"}[5m])) by (le, service_name, http_route))
+      - record: quantile:latency:p90:service:5m
+        expr: |
+          histogram_quantile(0.90, sum(rate(traces_span_metrics_duration_milliseconds_bucket{span_kind="SPAN_KIND_SERVER"}[5m])) by (le, service_name))

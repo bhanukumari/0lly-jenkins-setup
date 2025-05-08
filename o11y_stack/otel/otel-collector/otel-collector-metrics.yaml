@@ -1,0 +1,21 @@
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMServiceScrape
+metadata:
+  labels:
+    app: otel-collector-metrics
+    exclude: "true"
+    prometheus: kube
+  name: otel-collector-metrics-sm
+  namespace: observability
+spec:
+  endpoints:
+  - interval: 30s
+    path: /metrics
+    targetPort: 8888
+  namespaceSelector:
+    matchNames:
+    - observability
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: opentelemetry-collector-monitoring
+      operator.opentelemetry.io/collector-service-type: monitoring

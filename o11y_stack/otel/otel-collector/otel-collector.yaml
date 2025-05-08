@@ -1,0 +1,127 @@
+apiVersion: opentelemetry.io/v1beta1
+kind: OpenTelemetryCollector
+metadata:
+  name: opentelemetry
+  namespace: observability
+spec:
+  mode: deployment
+  resources:
+    requests:
+      cpu: 0.3
+      memory: 300Mi
+    limits:
+      cpu: 0.3
+      memory: 300Mi
+  autoscaler:
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilization: 80
+    targetMemoryUtilization: 80
+
+  config:
+    connectors:
+      spanmetrics:
+        dimensions:
+        - name: http.method
+        - name: http.status_code
+        - default: /
+          name: http.route
+        dimensions_cache_size: 1000
+        events:
+          dimensions:
+          - name: exception.type
+          - name: exception.message
+          enabled: true
+        exemplars:
+          enabled: true
+        metrics_expiration: 5m
+        metrics_flush_interval: 15s
+    exporters:
+      debug: {}
+      otlp:
+        endpoint: tempo:4317
+        tls:
+          insecure: true
+      prometheusremotewrite:
+        endpoint: http://vminsert-vm.monitoring.svc:8480/insert/0/prometheus/api/v1/write
+        export_created_metric:
+          enabled: true
+        max_batch_size_bytes: 8192
+        remote_write_queue:
+          enabled: true
+          num_consumers: 100
+          queue_size: 100000
+        retry_on_failure:
+          enabled: true
+          initial_interval: 5s
+          max_elapsed_time: 300s
+          max_interval: 30s
+        timeout: 300s
+        tls:
+          insecure_skip_verify: true
+    processors:
+      batch:
+        send_batch_max_size: 8192
+        send_batch_size: 1024
+        timeout: 60s
+      memory_limiter:
+        check_interval: 10s
+        limit_percentage: 75
+        spike_limit_percentage: 50
+      tail_sampling:
+        decision_wait: 60s
+        policies:
+        - name: error-policy
+          status_code:
+            status_codes:
+            - ERROR
+          type: status_code
+        - latency:
+            threshold_ms: 500
+          name: latency-policy
+          type: latency
+        - name: probabilistic
+          probabilistic:
+            sampling_percentage: 10
+          type: probabilistic
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+            keepalive:
+              server_parameters:
+                max_connection_age: 5m
+                max_connection_age_grace: 5m
+                max_connection_idle: 1m
+                time: 3m
+                timeout: 5m
+          http:
+            endpoint: 0.0.0.0:4318
+    service:
+      pipelines:
+        metrics:
+          exporters:
+          - debug
+          - prometheusremotewrite
+          processors:
+          - memory_limiter
+          - batch
+          receivers:
+          - spanmetrics
+          - otlp
+        traces:
+          exporters:
+          - debug
+          - otlp
+          - spanmetrics
+          processors:
+          - memory_limiter
+          - batch
+          - tail_sampling
+          receivers:
+          - otlp
+      telemetry:
+        metrics:
+          address: 0.0.0.0:8888
+          level: detailed

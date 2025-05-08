@@ -1,0 +1,45 @@
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMRule
+metadata:
+  name: coredns-rules
+  namespace: monitoring
+spec:
+  groups:
+  - name: coredns-rules
+    rules:
+    - alert: CoreDNSDownCritical 
+      annotations:
+        description: CoreDNS has disappeared from Prometheus target discovery for the last 3 minutes.
+        dashboard_url: https://grafana-internal.stablemoney.in/explore
+        summary: "CoreDNS is not running"
+      expr: |
+        absent(up{job="coredns"} == 1)
+      for: 3m
+      labels:
+        severity: critical
+        channel: slack
+        team: devops
+    - alert: CoreDNSLatencyCritical 
+      annotations:
+        description: CoreDNS has a 99th percentile latency of {{ $value }} seconds for server. 
+        dashboard_url: https://grafana-internal.stablemoney.in/explore
+        summary: "CoreDNS has high latency"
+      expr: |
+        histogram_quantile(0.99, sum(rate(coredns_dns_request_duration_seconds_bucket{instance=~".*", zone="."}[3m])) by (server, zone, le)) > 4
+      for: 3m
+      labels:
+        severity: critical
+        channel: slack
+        team: devops
+    - alert: CoreDNSForwardLatencyCritical 
+      annotations:   
+        description: CoreDNS has a 99th percentile latency of {{ $value }} seconds forwarding requests to {{ $labels.to }}.
+        dashboard_url: https://grafana-internal.stablemoney.in/explore
+        summary: "CoreDNS forwarding requests are slow"
+      expr: |
+        histogram_quantile(0.99, sum(rate(coredns_dns_request_duration_seconds_bucket{instance=~".*", zone="."}[3m])) by (server, zone, le)) > 4
+      for: 3m
+      labels:
+        severity: critical
+        channel: slack
+        team: devops

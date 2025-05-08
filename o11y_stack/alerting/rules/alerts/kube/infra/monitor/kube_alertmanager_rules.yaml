@@ -1,0 +1,52 @@
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMRule
+metadata:
+  name: alertmanager-rules
+  namespace: monitoring
+spec:
+  groups:
+  - name: alertmanager.rules
+    rules:
+    - alert: AlertmanagerConfigInconsistent 
+      annotations:
+        description: |
+          The configuration of the instances of the Alertmanager cluster `{{ $labels.namespace }}/{{ $labels.service }}` are out of sync.
+          {{ range printf "alertmanager_config_hash{namespace=\"%s\",service=\"%s\"}" $labels.namespace $labels.service | query }}
+          Configuration hash for pod {{ .Labels.pod }} is "{{ printf "%.f" .Value }}"
+          {{ end }}
+        summary: "Alertmanager configuration mismatch"
+        dashboard_url: https://grafana-internal.stablemoney.in/explore
+        runbook_url: https://github.com/kubernetes-monitoring/kubernetes-mixin/tree/master/runbook.md
+      expr: count by(namespace,service) (count_values by(namespace,service) ("config_hash", alertmanager_config_hash{job="kube-alertmanager",namespace="monitoring"})) != 1
+      for: 5m
+      labels:
+        severity: warning
+        channel: slack
+        team: devops
+    - alert: AlertmanagerFailedReload 
+      annotations:
+        description: Reloading Alertmanager's configuration has failed for {{ $labels.namespace }}/{{ $labels.pod}}.
+        summary: "Alertmanager failed to reload configuration"
+        dashboard_url: https://grafana-internal.stablemoney.in/explore
+        runbook_url: https://github.com/kubernetes-monitoring/kubernetes-mixin/tree/master/runbook.md
+      expr: alertmanager_config_last_reload_successful{job="kube-alertmanager",namespace="monitoring"} == 0
+      for: 10m
+      labels:
+        severity: warning
+        channel: slack
+        team: devops
+    - alert: AlertmanagerMembersInconsistent 
+      annotations:
+        description: Alertmanager has not found all other members of the cluster.
+        summary: "Alertmanager cluster members inconsistency"
+        dashboard_url: https://grafana-internal.stablemoney.in/explore
+        runbook_url: https://github.com/kubernetes-monitoring/kubernetes-mixin/tree/master/runbook.md
+      expr: |-
+        alertmanager_cluster_members{job="kube-alertmanager",namespace="monitoring"}
+          != on (service) GROUP_LEFT()
+        count by (service) (alertmanager_cluster_members{job="kube-alertmanager",namespace="monitoring"})
+      for: 5m
+      labels:
+        severity: warning
+        channel: slack
+        team: devops

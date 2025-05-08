@@ -1,0 +1,361 @@
+vm:
+  defaultDashboardsEnabled: true
+  experimentalDashboardsEnabled: true
+  prometheus-node-exporter:
+    enabled: true
+  node:
+    enabled: true
+  kubeStateMetrics:
+    enabled: true
+  grafana:
+    enabled: true
+    testFramework:
+      enabled: false
+    sidecar:
+      datasources:
+        defaultDatasourceEnabled: false
+    resources:
+      requests:
+        cpu: "0.1"
+        memory: 150Mi
+      limits:
+        cpu: "0.1"
+        memory: 300Mi
+    persistence:
+      enabled: true
+      type: sts
+      storageClassName: buildpiper-storage
+      accessModes:
+        - ReadWriteOnce
+      size: 1Gi
+      finalizers:
+        - kubernetes.io/pvc-protection
+    nodeSelector:
+      environment: dev
+      workload-type: on-demand
+      team: devops
+      node_group: monit-logging
+    tolerations:
+      - key: o11y
+        operator: Equal
+        value: "true"
+        effect: NoSchedule
+
+  alertmanager:
+    enabled: true
+    config:
+      global:
+        resolve_timeout: 5m
+      templates:
+        - "/etc/vm/configs/**/*.tmpl"
+      route:
+        receiver: "blackhole"
+      receivers:
+        - name: blackhole
+    monzoTemplate:
+      enabled: false
+    templateFiles:
+      opstree-alert-template.tmpl: |-
+        {{/* Alertmanager Silence link */}}
+        {{ define "__alert_silence_link" -}}
+          {{ .ExternalURL }}/#/silences/new?filter=%7B
+          {{- range .CommonLabels.SortedPairs -}}
+            {{- if ne .Name "alertname" -}}
+              {{- .Name }}%3D"{{- .Value | urlquery -}}"%2C%20
+            {{- end -}}
+          {{- end -}}
+          alertname%3D"{{- .CommonLabels.alertname -}}"%7D
+        {{- end }}
+
+        {{/* Severity of the alert */}}
+        {{ define "__alert_severity" -}}
+            {{- if eq .CommonLabels.severity "critical" -}}
+            • *severity:* `critical`
+            {{- else if eq .CommonLabels.severity "warning" -}}
+            • *severity:* `warning`
+            {{- else if eq .CommonLabels.severity "info" -}}
+            • *severity:* `info`
+            {{- else -}}
+            • *severity:* :question: {{ .CommonLabels.severity }}
+            {{- end }}
+        {{- end }}
+
+        {{ define "__alert_severity_prefix_title" -}}
+            {{ if ne .Status "firing" -}}
+            :white_check_mark:
+            {{- else if eq .CommonLabels.severity "critical" -}}
+            :fire:
+            {{- else if eq .CommonLabels.severity "warning" -}}
+            :warning:
+            {{- else if eq .CommonLabels.severity "info" -}}
+            :information_source:
+            {{- else -}}
+            :question:
+            {{- end }}
+        {{- end }}
+
+        {{/* Title of the Slack alert */}}
+        {{ define "slack.title" -}}
+          [{{ .Status | toUpper -}}
+          {{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{- end -}}
+          ] {{ template "__alert_severity_prefix_title" . }} {{ .CommonLabels.alertname }} | {{ .CommonLabels.env }} 
+        {{- end }}
+
+        {{/* Color of Slack attachment (appears as line next to alert )*/}}
+        {{ define "slack.color" -}}
+          {{ if eq .Status "firing" -}}
+            {{ if eq .CommonLabels.severity "warning" -}}
+              warning
+            {{- else if eq .CommonLabels.severity "critical" -}}
+              danger
+            {{- else -}}
+              #439FE0
+            {{- end }}
+          {{ else -}}
+          good
+          {{- end }}
+        {{- end }}
+
+        {{/* The text to display in the alert */}}
+        {{ define "slack.text" -}}
+          {{ template "__alert_severity" . }}
+          
+          {{- if (index .Alerts 0).Annotations.summary }}
+          • *summary:* `{{ (index .Alerts 0).Annotations.summary }}`
+          {{- end }}
+
+          {{- if (index .Alerts 0).Annotations.description }}
+          • *Status:* `{{ (index .Alerts 0).Annotations.description }}`  
+          {{- end }}
+
+          {{- if .CommonLabels.namespace }}
+          • *namespace:* `{{ .CommonLabels.namespace }}`  
+          {{- end }}
+
+          {{- if .CommonLabels.env }}
+          • *env:* `{{ .CommonLabels.env }}`  
+          {{- end }}
+
+          {{- if .CommonLabels.container }}
+          • *service:* `{{ .CommonLabels.container }}`  
+          {{- end }}
+
+          {{- if .CommonLabels.pod }}
+          • *pod:* `{{ .CommonLabels.pod }}`  
+          {{- end }}
+
+          *Details:*
+          {{ range .CommonLabels.SortedPairs }} • *{{ .Name }}:* `{{ .Value }}`  
+          {{ end }}
+        {{- end }} 
+    spec:
+      externalURL: "http://vmalertmanager.in/"
+      configNamespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: monitoring
+      disableNamespaceMatcher: true
+      replicaCount: 1
+      retention: 240h
+      resources:
+        requests:
+          cpu: "0.1"
+          memory: 150Mi
+        limits:
+          cpu: "0.1"
+          memory: 300Mi
+      nodeSelector:
+        environment: dev
+        workload-type: on-demand
+        team: devops
+        node_group: monit-logging
+      tolerations:
+        - key: o11y
+          operator: Equal
+          value: "true"
+          effect: NoSchedule
+      storage:
+        volumeClaimTemplate:
+          spec:
+            storageClassName: buildpiper-storage
+            accessModes:
+              - "ReadWriteOnce"
+            resources:
+              requests:
+                storage: 1Gi
+
+  vmsingle:
+    enabled: false
+
+  defaultRules:
+    create: false
+
+  kubeApiServer:
+    enabled: false
+  kubeControllerManager:
+    enabled: false
+  kubeEtcd:
+    enabled: false
+  kubeScheduler:
+    enabled: false
+
+  crds:
+    enabled: false
+
+  dashboards:
+    node-exporter-full: false
+
+  vmcluster:
+    enabled: true
+    spec:
+      retentionPeriod: "3d"
+      replicationFactor: 1
+      vmstorage:
+        replicaCount: 1
+        extraArgs:
+          search.maxUniqueTimeseries: "10000000000000"
+        resources:
+          limits:
+            cpu: "0.5"
+            memory: 500Mi
+          requests:
+            cpu: "0.3"
+            memory: 300Mi
+        storage:
+          volumeClaimTemplate:
+            spec:
+              storageClassName: buildpiper-storage
+              resources:
+                requests:
+                  storage: 20Gi
+        nodeSelector:
+          environment: dev
+          workload-type: on-demand
+          team: devops
+          node_group: monit-logging
+        tolerations:
+          - key: o11y
+            operator: Equal
+            value: "true"
+            effect: NoSchedule
+      vmselect:
+        replicaCount: 1
+        extraArgs:
+          memory.allowedPercent: "75"
+          search.cacheTimestampOffset: 60m
+          search.maxLabelsAPISeries: "10000000000000"
+          search.maxMemoryPerQuery: 2GB
+          search.maxPointsPerTimeseries: "10000000000000"
+          search.maxQueryDuration: 10m
+          search.maxQueryLen: "10000000000000"
+          search.maxSeries: "10000000000000"
+          search.maxUniqueTimeseries: "10000000000000"
+        storage:
+          volumeClaimTemplate:
+            spec:
+              storageClassName: buildpiper-storage
+              resources:
+                requests:
+                  storage: 2Gi
+        resources:
+          limits:
+            cpu: "0.2"
+            memory: 300Mi
+          requests:
+            cpu: "0.1"
+            memory: 150Mi
+        nodeSelector:
+          environment: dev
+          workload-type: on-demand
+          team: devops
+          node_group: monit-logging
+        tolerations:
+          - key: o11y
+            operator: Equal
+            value: "true"
+            effect: NoSchedule
+      vminsert:
+        replicaCount: 1
+        extraArgs:
+          maxLabelsPerTimeseries: "100"
+        image:
+          tag: v1.103.0-cluster
+        resources:
+          limits:
+            cpu: "0.2"
+            memory: 300Mi
+          requests:
+            cpu: "0.1"
+            memory: 150Mi
+        nodeSelector:
+          environment: dev
+          workload-type: on-demand
+          team: devops
+          node_group: monit-logging
+        tolerations:
+          - key: o11y
+            operator: Equal
+            value: "true"
+            effect: NoSchedule
+
+  vmagent:
+    enabled: true
+    spec:
+      serviceScrapeNamespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: vm
+      extraArgs:
+        promscrape.maxScrapeSize: 200MB
+        promscrape.streamParse: "true"
+        promscrape.dropOriginalLabels: "true"
+        remoteWrite.label: k8s_cluster=staging,env=staging
+      resources:
+        limits:
+          cpu: "0.2"
+          memory: 300Mi
+        requests:
+          cpu: "0.1"
+          memory: 150Mi
+      scrapeInterval: 30s
+      nodeSelector:
+        environment: dev
+        workload-type: on-demand
+        team: devops
+        node_group: monit-logging
+      tolerations:
+        - key: o11y
+          operator: Equal
+          value: "true"
+          effect: NoSchedule
+
+  vmalert:
+    enabled: true
+    spec:
+      resources:
+        limits:
+          cpu: "0.2"
+          memory: 300Mi
+        requests:
+          cpu: "0.2"
+          memory: 150Mi
+      nodeSelector:
+        environment: dev
+        workload-type: on-demand
+        team: devops
+        node_group: monit-logging
+      tolerations:
+        - key: o11y
+          operator: Equal
+          value: "true"
+          effect: NoSchedule
+
+blackbox:
+  enabled: false
+  serviceMonitor:
+    enabled: true
+    defaults:
+      additionalMetricsRelabels: {}
+      labels:
+        prometheus: app
+      interval: 30s
+      scrapeTimeout: 30s
+      module: http_2xx

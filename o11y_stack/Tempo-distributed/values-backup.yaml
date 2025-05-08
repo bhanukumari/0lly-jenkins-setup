@@ -1,0 +1,176 @@
+tempo:
+  mode: distributed
+
+  tempo:
+    image:
+      registry: docker.io 
+      repository: grafana/tempo
+      tag: 2.4.1
+
+  traces:
+    otlp:
+      http:
+        enabled: true
+      grpc:
+        enabled: true
+  ingester:
+    image:
+      repository: grafana/tempo
+      tag: null
+    autoscaling:
+      enabled: false
+      minReplicas: 2
+      maxReplicas: 3
+      targetCPUUtilizationPercentage: 70
+      targetMemoryUtilizationPercentage:
+    resources:
+      requests:
+        cpu: "0.3"
+        memory: "300Mi"
+      limits:
+        cpu: "0.5"
+        memory: "500Mi"
+    nodeSelector:
+      environment: dev
+      workload-type: on-demand
+      team: devops
+      node_group: monit-logging
+    persistence:
+      enabled: true
+      size: 5Gi
+      storageClass: buildpiper-storage
+  metricsGenerator:
+    enabled: true
+    resources:
+      requests:
+        cpu: "0.2"
+        memory: "200Mi"
+      limits:
+        cpu: "0.4"
+        memory: "400Mi"
+    config:
+      storage:
+        remote_write:
+          - url: "http://vminsert-vm.monitoring.svc:8480/insert/0/prometheus/api/v1/write"
+    nodeSelector:
+      environment: dev
+      workload-type: on-demand
+      team: devops
+      node_group: monit-logging
+  distributor:
+    image:
+      repository: grafana/tempo
+      tag: null
+    autoscaling:
+      enabled: false
+      minReplicas: 1
+      maxReplicas: 3
+      targetCPUUtilizationPercentage: 70
+      targetMemoryUtilizationPercentage:
+    resources:
+      requests:
+        cpu: "0.2"
+        memory: "200Mi"
+      limits:
+        cpu: "0.4"
+        memory: "400Mi"
+    nodeSelector:
+      environment: dev
+      workload-type: on-demand
+      team: devops
+      node_group: monit-logging
+  compactor: 
+    image:
+      repository: grafana/tempo
+      tag: null
+    config:
+      compaction:
+        block_retention: 48h
+        compacted_block_retention: 1h
+        compaction_window: 1h
+        v2_in_buffer_bytes: 5242880
+        v2_out_buffer_bytes: 20971520
+        max_compaction_objects: 6000000
+        max_block_bytes: 107374182400
+        retention_concurrency: 10
+        v2_prefetch_traces_count: 1000
+        max_time_per_tenant: 5m
+        compaction_cycle: 30s
+    nodeSelector:
+      environment: dev
+      workload-type: on-demand
+      team: devops
+      node_group: monit-logging
+    resources: 
+      requests:
+        cpu: "0.3"
+        memory: "300Mi"
+      limits:
+        cpu: "0.5"
+        memory: "500Mi"
+  querier:
+    image:
+      repository: grafana/tempo
+      tag: null
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 3
+    behavior: {}
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage:  
+    config:
+      max_concurrent_queries: 20
+    nodeSelector:
+      environment: dev
+      workload-type: on-demand
+      team: devops
+      node_group: monit-logging
+    resources: 
+      requests:
+        cpu: "0.2"
+        memory: "200Mi"
+      limits:
+        cpu: "0.4"
+        memory: "400Mi"
+
+  queryFrontend:
+    image:
+      repository: grafana/tempo
+      tag: null
+    resources: 
+      requests:
+        cpu: "0.3"
+        memory: "300Mi"
+      limits:
+        cpu: "0.5"
+        memory: "500Mi"
+    nodeSelector:
+      environment: dev
+      workload-type: on-demand
+      team: devops
+      node_group: monit-logging
+    autoscaling:
+      enabled: false
+      minReplicas: 1
+      maxReplicas: 3
+      behavior: {}
+      targetCPUUtilizationPercentage: 70
+      targetMemoryUtilizationPercentage:
+  memcached:
+    enabled: true
+    image:
+    repository: memcached
+    tag: 1.6.23-alpine
+    pullPolicy: IfNotPresent
+    resources: 
+      requests:
+        cpu: "0.3"
+        memory: "300Mi"
+      limits:
+        cpu: "0.5"
+        memory: "500Mi"
+    nodeSelector:
+      environment: dev
+      workload-type: on-demand
+      team: devops
+      node_group: monit-logging

@@ -1,0 +1,72 @@
+standalone:
+  singleBinary:
+    persistence:
+      enableStatefulSetAutoDeletePVC: true
+      storageClass: buildpiper-storage
+      size: 20Gi
+    retention_period: 24hr
+    nodeSelector:
+      environment: dev
+      workload-type: on-demand
+      team: devops
+      node_group: monit-logging
+    tolerations:
+      - key: olly
+        operator: Equal
+        value: "true"
+        effect: NoSchedule
+
+  gateway:
+    nodeSelector:
+      environment: dev
+      workload-type: on-demand
+      team: devops
+      node_group: monit-logging
+    tolerations:
+      - key: olly
+        operator: Equal
+        value: "true"
+        effect: NoSchedule
+
+  resultsCache:
+    nodeSelector:
+      environment: dev
+      workload-type: on-demand
+      team: devops
+      node_group: monit-logging
+    tolerations:
+      - key: olly
+        operator: Equal
+        value: "true"
+        effect: NoSchedule
+
+  chunksCache:
+    nodeSelector:
+      environment: dev
+      workload-type: on-demand
+      team: devops
+      node_group: monit-logging
+    tolerations:
+      - key: olly
+        operator: Equal
+        value: "true"
+        effect: NoSchedule
+
+promtail:
+  config:
+    logLevel: info
+    clients:
+      - url: http://logging-loki-gateway.logging.svc.cluster.local/loki/api/v1/push
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 500Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+  
+  tolerations:
+    - effect: NoSchedule
+      operator: Exists

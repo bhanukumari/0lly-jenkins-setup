@@ -1,0 +1,35 @@
+tempo:
+  enabled: true
+  fullnameOverride: tempo
+  tempo:
+    retention: 8h
+    resources:
+      requests:
+        cpu: "0.3"
+        memory: "300Mi"
+      limits:
+        cpu: "0.5"
+        memory: "500Mi"
+    nodeSelector:
+        environment: dev
+        workload-type: on-demand
+        team: devops
+        node_group: monit-logging
+    tolerations:
+      - key: node
+        operator: Equal
+        value: "observability"
+        effect: NoSchedule
+    securityContext:
+      privileged: true
+      runAsUser: 0
+    metricsGenerator:
+      enabled: true
+      remoteWriteUrl: "http://vminsert-vm.monitoring.svc:8480/insert/0/prometheus/api/v1/write"
+  persistence:
+    enabled: true
+    storageClassName:  buildpiper-storage
+    size: 20Gi
+
+  serviceMonitor:
+    enabled: false
